@@ -41,7 +41,7 @@ public abstract class ItemEntityMergeMixin {
 
         for (ItemEntity other : nearby) {
             ItemStack otherStack = other.getStack();
-            if (!ItemStack.areItemsAndComponentsEqual(selfStack, otherStack)) continue;
+            if (!ItemStack.areItemsEqual(selfStack, otherStack) || !ItemStack.areNbtEqual(selfStack, otherStack)) continue;
 
             int combined = selfStack.getCount() + otherStack.getCount();
             if (combined > ModStackConfig.ITEM_DROP_MAX_STACK) continue;
