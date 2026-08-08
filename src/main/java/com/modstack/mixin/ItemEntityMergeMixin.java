@@ -11,11 +11,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
+import java.util.Objects;
 
 // Periodically scans for other dropped-item piles of the same item (and same
-// NBT/components) within ITEM_DROP_MERGE_RADIUS and merges them into one
-// pile, up to ITEM_DROP_MAX_STACK. This is purely about items lying on the
-// ground — inventory stack sizes are untouched.
+// NBT) within ITEM_DROP_MERGE_RADIUS and merges them into one pile, up to
+// ITEM_DROP_MAX_STACK. This is purely about items lying on the ground —
+// inventory stack sizes are untouched.
 @Mixin(ItemEntity.class)
 public abstract class ItemEntityMergeMixin {
 
@@ -41,7 +42,8 @@ public abstract class ItemEntityMergeMixin {
 
         for (ItemEntity other : nearby) {
             ItemStack otherStack = other.getStack();
-            if (!ItemStack.areItemsEqual(selfStack, otherStack) || !ItemStack.areNbtEqual(selfStack, otherStack)) continue;
+            if (selfStack.getItem() != otherStack.getItem()) continue;
+            if (!Objects.equals(selfStack.getNbt(), otherStack.getNbt())) continue;
 
             int combined = selfStack.getCount() + otherStack.getCount();
             if (combined > ModStackConfig.ITEM_DROP_MAX_STACK) continue;
