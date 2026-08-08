@@ -19,6 +19,9 @@ public final class ModStackConfig {
 
     // Radius (blocks) mobs merge within, checked every MERGE_INTERVAL_TICKS.
     public static final double MERGE_RADIUS = 4.0D;
+    
+    // How close a player must be (blocks) before the stack count nametag shows up.
+    public static final double NAMETAG_VISIBLE_RADIUS = 6.0D;
 
     // How often (in ticks) the server scans for mergeable mobs. 20 ticks = 1s.
     public static final int MERGE_INTERVAL_TICKS = 40;
