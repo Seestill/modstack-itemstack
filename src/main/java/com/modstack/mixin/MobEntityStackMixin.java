@@ -30,9 +30,6 @@ public abstract class MobEntityStackMixin implements StackAccess {
     @Invoker("dropLoot")
     public abstract void modstack$invokeDropLoot(DamageSource source, boolean causedByPlayer);
 
-    @Invoker("getDeathSound")
-    public abstract net.minecraft.sound.SoundEvent modstack$invokeGetDeathSound();
-
     // @Unique-ish plain field is fine for a demo mixin; count starts at 1 (a "stack of one").
     private int modstack_count = 1;
     private int modstack_mergeCooldown = (int) (Math.random() * ModStackConfig.MERGE_INTERVAL_TICKS);
@@ -119,7 +116,6 @@ public abstract class MobEntityStackMixin implements StackAccess {
         // Lethal hit against a stack: remove one member, drop its loot, heal the rest.
         modstack$setCount(modstack_count - 1);
         self.setHealth(self.getMaxHealth());
-        self.playSound(modstack$invokeGetDeathSound(), 1.0F, 1.0F);
 
         // Run the mob's real loot table for the "popped" member.
         modstack$invokeDropLoot(source, source.getAttacker() != null && source.getAttacker().isPlayer());
