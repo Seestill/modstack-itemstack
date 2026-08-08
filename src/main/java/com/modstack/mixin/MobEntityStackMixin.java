@@ -2,8 +2,6 @@ package com.modstack.mixin;
 
 import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.nbt.NbtCompound;
@@ -11,7 +9,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Box;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -19,15 +16,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 // Adds a persistent "stack count" to every MobEntity, periodically merges
-// nearby identical mobs into one stack, and unwraps the stack one member at
-// a time on death instead of always fully despawning.
+// nearby identical mobs into one stack. Death/damage handling lives in
+// LivingEntityDamageMixin because damage() is implemented in LivingEntity,
+// not MobEntity itself.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
-    @Invoker("dropLoot")
-    public abstract void modstack$invokeDropLoot(DamageSource source, boolean causedByPlayer);
-
-    // count starts at 1 (a "stack of one").
     private int modstack_count = 1;
     private int modstack_mergeCooldown = (int) (Math.random() * ModStackConfig.MERGE_INTERVAL_TICKS);
 
@@ -95,23 +89,5 @@ public abstract class MobEntityStackMixin implements StackAccess {
             other.discard();
             if (modstack_count >= ModStackConfig.MAX_MOB_STACK) break;
         }
-    }
-
-    @Inject(method = "damage", at = @At("HEAD"), cancellable = true)
-    private void modstack$onDamage(DamageSource source, float amount, CallbackInfo ci) {
-        MobEntity self = (MobEntity) (Object) this;
-        if (self.getWorld().isClient) return;
-        if (modstack_count <= 1) return;
-        if (!self.isAlive()) return;
-
-        float healthAfter = self.getHealth() - amount;
-        if (healthAfter > 0) return;
-
-        modstack$setCount(modstack_count - 1);
-        self.setHealth(self.getMaxHealth());
-
-        modstack$invokeDropLoot(source, source.getAttacker() != null && source.getAttacker().isPlayer());
-
-        ci.cancel();
     }
 }
