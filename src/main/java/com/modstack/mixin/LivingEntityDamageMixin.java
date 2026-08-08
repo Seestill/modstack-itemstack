@@ -7,11 +7,12 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // damage() and dropLoot() are actually implemented in LivingEntity, not
 // MobEntity, so this handles the "pop one member off the stack" logic
 // that MobEntityStackMixin can't inject into directly.
+// damage() returns boolean in 1.20.1, so we must use CallbackInfoReturnable<Boolean>.
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityDamageMixin {
 
@@ -19,7 +20,7 @@ public abstract class LivingEntityDamageMixin {
     public abstract void modstack$invokeDropLoot(DamageSource source, boolean causedByPlayer);
 
     @Inject(method = "damage", at = @At("HEAD"), cancellable = true)
-    private void modstack$onDamage(DamageSource source, float amount, CallbackInfo ci) {
+    private void modstack$onDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity self = (LivingEntity) (Object) this;
         if (!(self instanceof StackAccess stack)) return;
         if (self.getWorld().isClient) return;
@@ -34,6 +35,6 @@ public abstract class LivingEntityDamageMixin {
 
         modstack$invokeDropLoot(source, source.getAttacker() != null && source.getAttacker().isPlayer());
 
-        ci.cancel();
+        cir.setReturnValue(true);
     }
 }
