@@ -6,7 +6,9 @@ import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Box;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -16,9 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 // Adds a persistent "stack count" to every MobEntity, periodically merges
-// nearby identical mobs into one stack. Death/damage handling lives in
-// LivingEntityDamageMixin because damage() is implemented in LivingEntity,
-// not MobEntity itself.
+// nearby identical mobs into one stack, colors the nametag by stack size,
+// and only shows the nametag when a player is close enough.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
@@ -40,11 +41,20 @@ public abstract class MobEntityStackMixin implements StackAccess {
         MobEntity self = (MobEntity) (Object) this;
         if (modstack_count > 1) {
             String baseName = self.getType().getName().getString();
-            self.setCustomName(Text.of(baseName + " x" + modstack_count));
-            self.setCustomNameVisible(true);
-        } else if (self.hasCustomName()) {
+            Formatting color = modstack$colorForCount(modstack_count);
+            MutableText text = Text.literal(baseName + " x" + modstack_count).formatted(color, Formatting.BOLD);
+            self.setCustomName(text);
+        } else {
+            self.setCustomName(null);
             self.setCustomNameVisible(false);
         }
+    }
+
+    private Formatting modstack$colorForCount(int count) {
+        if (count >= 50) return Formatting.RED;
+        if (count >= 25) return Formatting.GOLD;
+        if (count >= 10) return Formatting.YELLOW;
+        return Formatting.GREEN;
     }
 
     @Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
@@ -56,6 +66,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
     private void modstack$readNbt(NbtCompound nbt, CallbackInfo ci) {
         if (nbt.contains("ModStackCount")) {
             modstack_count = Math.max(1, nbt.getInt("ModStackCount"));
+            modstack$refreshName();
         }
     }
 
@@ -64,6 +75,13 @@ public abstract class MobEntityStackMixin implements StackAccess {
         MobEntity self = (MobEntity) (Object) this;
         if (self.getWorld().isClient) return;
         if (!self.isAlive()) return;
+
+        // Only show/hide the stack nametag when a player is close enough.
+        if (modstack_count > 1) {
+            boolean nearPlayer = self.getWorld().getClosestPlayer(self, ModStackConfig.NAMETAG_VISIBLE_RADIUS) != null;
+            self.setCustomNameVisible(nearPlayer);
+        }
+
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
         if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
