@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "modstack",
+  "version": "${version}",
+  "name": "ModStack ItemStack",
+  "description": "Mob and item stacking system with breeding mechanics for Fabric 1.20.1",
+  "authors": ["You"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.modstack.ModStackMod"],
+    "client": ["com.modstack.ModStackClient"]
+  },
+  "mixins": ["modstack.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.15.11",
+    "fabric-api": "*",
+    "minecraft": "1.20.1",
+    "java": ">=17"
+  }
+}
