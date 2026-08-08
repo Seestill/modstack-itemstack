@@ -11,7 +11,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Box;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -25,12 +24,10 @@ import java.util.List;
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
-    @Shadow public abstract EntityType<?> getType();
-
     @Invoker("dropLoot")
     public abstract void modstack$invokeDropLoot(DamageSource source, boolean causedByPlayer);
 
-    // @Unique-ish plain field is fine for a demo mixin; count starts at 1 (a "stack of one").
+    // count starts at 1 (a "stack of one").
     private int modstack_count = 1;
     private int modstack_mergeCooldown = (int) (Math.random() * ModStackConfig.MERGE_INTERVAL_TICKS);
 
@@ -52,8 +49,6 @@ public abstract class MobEntityStackMixin implements StackAccess {
             self.setCustomName(Text.of(baseName + " x" + modstack_count));
             self.setCustomNameVisible(true);
         } else if (self.hasCustomName()) {
-            // Only clear names WE set; if a player named it manually we'd want to
-            // track that separately. Kept simple for this demo.
             self.setCustomNameVisible(false);
         }
     }
@@ -75,6 +70,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
         MobEntity self = (MobEntity) (Object) this;
         if (self.getWorld().isClient) return;
         if (!self.isAlive()) return;
+        if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
         if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
         if (modstack_mergeCooldown-- > 0) return;
@@ -96,31 +92,26 @@ public abstract class MobEntityStackMixin implements StackAccess {
             if (combined > ModStackConfig.MAX_MOB_STACK) continue;
 
             modstack$setCount(combined);
-            other.discard(); // the merged-in mob is absorbed into this stack
+            other.discard();
             if (modstack_count >= ModStackConfig.MAX_MOB_STACK) break;
         }
     }
 
-    // Intercept lethal damage: if this entity represents a stack of more than
-    // one mob, "pop" a single member instead of letting the whole stack die.
     @Inject(method = "damage", at = @At("HEAD"), cancellable = true)
     private void modstack$onDamage(DamageSource source, float amount, CallbackInfo ci) {
         MobEntity self = (MobEntity) (Object) this;
         if (self.getWorld().isClient) return;
+        if (modstack_count <= 1) return;
         if (!self.isAlive()) return;
-        if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
-        if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
         float healthAfter = self.getHealth() - amount;
-        if (healthAfter > 0) return; // not lethal yet, let vanilla damage() apply normally
+        if (healthAfter > 0) return;
 
-        // Lethal hit against a stack: remove one member, drop its loot, heal the rest.
         modstack$setCount(modstack_count - 1);
         self.setHealth(self.getMaxHealth());
 
-        // Run the mob's real loot table for the "popped" member.
         modstack$invokeDropLoot(source, source.getAttacker() != null && source.getAttacker().isPlayer());
 
-        ci.cancel(); // stop this damage call from killing/registering further; stack absorbed the hit
+        ci.cancel();
     }
 }
