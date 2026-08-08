@@ -3,13 +3,20 @@ package com.modstack.mixin;
 import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.mob.ShulkerEntity;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.passive.AxolotlEntity;
+import net.minecraft.entity.passive.CatEntity;
+import net.minecraft.entity.passive.FoxEntity;
+import net.minecraft.entity.passive.FrogEntity;
 import net.minecraft.entity.passive.HorseEntity;
 import net.minecraft.entity.passive.LlamaEntity;
 import net.minecraft.entity.passive.MooshroomEntity;
+import net.minecraft.entity.passive.PandaEntity;
 import net.minecraft.entity.passive.ParrotEntity;
 import net.minecraft.entity.passive.RabbitEntity;
 import net.minecraft.entity.passive.SheepEntity;
+import net.minecraft.entity.passive.TropicalFishEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
@@ -22,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
+import java.util.Objects;
 
 // Adds a persistent "stack count" to every MobEntity, periodically merges
 // nearby identical mobs (same species AND same color/pattern variant, where
@@ -65,9 +73,9 @@ public abstract class MobEntityStackMixin implements StackAccess {
     }
 
     // Returns false if these two mobs are the same species but a DIFFERENT
-    // color/pattern variant (e.g. white sheep vs black sheep) and therefore
-    // must NOT be merged into the same stack. Species with no known variant
-    // check always return true (nothing to compare).
+    // color/pattern variant (e.g. white sheep vs black sheep, red fox vs
+    // snow fox) and therefore must NOT be merged into the same stack.
+    // Species with no known variant check always return true.
     private boolean modstack$sameVariant(MobEntity a, MobEntity b) {
         if (a instanceof SheepEntity sa && b instanceof SheepEntity sb) {
             return sa.getColor() == sb.getColor();
@@ -86,6 +94,27 @@ public abstract class MobEntityStackMixin implements StackAccess {
         }
         if (a instanceof RabbitEntity ra && b instanceof RabbitEntity rb) {
             return ra.getRabbitType() == rb.getRabbitType();
+        }
+        if (a instanceof CatEntity ca && b instanceof CatEntity cb) {
+            return Objects.equals(ca.getVariant(), cb.getVariant());
+        }
+        if (a instanceof FoxEntity fa && b instanceof FoxEntity fb) {
+            return fa.getVariantType() == fb.getVariantType();
+        }
+        if (a instanceof AxolotlEntity xa && b instanceof AxolotlEntity xb) {
+            return xa.getVariant() == xb.getVariant();
+        }
+        if (a instanceof FrogEntity ga && b instanceof FrogEntity gb) {
+            return Objects.equals(ga.getVariant(), gb.getVariant());
+        }
+        if (a instanceof TropicalFishEntity ta && b instanceof TropicalFishEntity tb) {
+            return ta.getVariant() == tb.getVariant();
+        }
+        if (a instanceof PandaEntity da && b instanceof PandaEntity db) {
+            return da.getMainGene() == db.getMainGene();
+        }
+        if (a instanceof ShulkerEntity za && b instanceof ShulkerEntity zb) {
+            return Objects.equals(za.getColor(), zb.getColor());
         }
         return true;
     }
