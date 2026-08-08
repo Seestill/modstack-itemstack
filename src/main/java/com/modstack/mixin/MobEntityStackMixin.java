@@ -107,8 +107,9 @@ public abstract class MobEntityStackMixin implements StackAccess {
     private void modstack$onDamage(DamageSource source, float amount, CallbackInfo ci) {
         MobEntity self = (MobEntity) (Object) this;
         if (self.getWorld().isClient) return;
-        if (modstack_count <= 1) return; // normal single-mob damage, let vanilla handle it
         if (!self.isAlive()) return;
+        if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
+        if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
         float healthAfter = self.getHealth() - amount;
         if (healthAfter > 0) return; // not lethal yet, let vanilla damage() apply normally
