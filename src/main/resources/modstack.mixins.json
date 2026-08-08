@@ -6,7 +6,8 @@
   "mixins": [
     "ItemAccessorMixin",
     "AnimalBreedMixin",
-    "MobEntityStackMixin"
+    "MobEntityStackMixin",
+    "LivingEntityDamageMixin"
   ],
   "client": [],
   "injectors": {
