@@ -4,6 +4,12 @@ import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.passive.HorseEntity;
+import net.minecraft.entity.passive.LlamaEntity;
+import net.minecraft.entity.passive.MooshroomEntity;
+import net.minecraft.entity.passive.ParrotEntity;
+import net.minecraft.entity.passive.RabbitEntity;
+import net.minecraft.entity.passive.SheepEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
@@ -18,8 +24,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 // Adds a persistent "stack count" to every MobEntity, periodically merges
-// nearby identical mobs into one stack, colors the nametag by stack size,
-// and only shows the nametag when a player is close enough.
+// nearby identical mobs (same species AND same color/pattern variant, where
+// applicable) into one stack, colors the nametag by stack size, and only
+// shows the nametag when a player is close enough.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
@@ -57,6 +64,32 @@ public abstract class MobEntityStackMixin implements StackAccess {
         return Formatting.GREEN;
     }
 
+    // Returns false if these two mobs are the same species but a DIFFERENT
+    // color/pattern variant (e.g. white sheep vs black sheep) and therefore
+    // must NOT be merged into the same stack. Species with no known variant
+    // check always return true (nothing to compare).
+    private boolean modstack$sameVariant(MobEntity a, MobEntity b) {
+        if (a instanceof SheepEntity sa && b instanceof SheepEntity sb) {
+            return sa.getColor() == sb.getColor();
+        }
+        if (a instanceof HorseEntity ha && b instanceof HorseEntity hb) {
+            return ha.getVariant() == hb.getVariant();
+        }
+        if (a instanceof LlamaEntity la && b instanceof LlamaEntity lb) {
+            return la.getVariant() == lb.getVariant();
+        }
+        if (a instanceof ParrotEntity pa && b instanceof ParrotEntity pb) {
+            return pa.getVariant() == pb.getVariant();
+        }
+        if (a instanceof MooshroomEntity ma && b instanceof MooshroomEntity mb) {
+            return ma.getVariant() == mb.getVariant();
+        }
+        if (a instanceof RabbitEntity ra && b instanceof RabbitEntity rb) {
+            return ra.getRabbitType() == rb.getRabbitType();
+        }
+        return true;
+    }
+
     @Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
     private void modstack$writeNbt(NbtCompound nbt, CallbackInfo ci) {
         nbt.putInt("ModStackCount", modstack_count);
@@ -77,12 +110,8 @@ public abstract class MobEntityStackMixin implements StackAccess {
         if (!self.isAlive()) return;
 
         if (modstack_count > 1) {
-            // Only show/hide the stack nametag when a player is close enough.
             boolean nearPlayer = self.getWorld().getClosestPlayer(self, ModStackConfig.NAMETAG_VISIBLE_RADIUS) != null;
             self.setCustomNameVisible(nearPlayer);
-
-            // Clear "who hit me" state every tick so panic/escape AI (sheep, cows,
-            // pigs, etc.) never gets a chance to trigger while part of a stack.
             self.setAttacker(null);
         }
 
@@ -100,6 +129,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
                 other -> other != self
                         && other.isAlive()
                         && other.getType() == self.getType()
+                        && modstack$sameVariant(self, other)
                         && (ModStackConfig.ALLOW_BABY_STACKING || !(other instanceof AnimalEntity a && a.isBaby())));
 
         for (MobEntity other : nearby) {
