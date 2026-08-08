@@ -19,11 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
 
-/**
- * Adds a persistent "stack count" to every MobEntity, periodically merges
- * nearby identical mobs into one stack, and unwraps the stack one member at
- * a time on death instead of always fully despawning.
- */
+// Adds a persistent "stack count" to every MobEntity, periodically merges
+// nearby identical mobs into one stack, and unwraps the stack one member at
+// a time on death instead of always fully despawning.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
@@ -31,6 +29,9 @@ public abstract class MobEntityStackMixin implements StackAccess {
 
     @Invoker("dropLoot")
     public abstract void modstack$invokeDropLoot(DamageSource source, boolean causedByPlayer);
+
+    @Invoker("getDeathSound")
+    public abstract net.minecraft.sound.SoundEvent modstack$invokeGetDeathSound();
 
     // @Unique-ish plain field is fine for a demo mixin; count starts at 1 (a "stack of one").
     private int modstack_count = 1;
@@ -103,10 +104,8 @@ public abstract class MobEntityStackMixin implements StackAccess {
         }
     }
 
-    /**
-     * Intercept lethal damage: if this entity represents a stack of more than
-     * one mob, "pop" a single member instead of letting the whole stack die.
-     */
+    // Intercept lethal damage: if this entity represents a stack of more than
+    // one mob, "pop" a single member instead of letting the whole stack die.
     @Inject(method = "damage", at = @At("HEAD"), cancellable = true)
     private void modstack$onDamage(DamageSource source, float amount, CallbackInfo ci) {
         MobEntity self = (MobEntity) (Object) this;
@@ -120,12 +119,10 @@ public abstract class MobEntityStackMixin implements StackAccess {
         // Lethal hit against a stack: remove one member, drop its loot, heal the rest.
         modstack$setCount(modstack_count - 1);
         self.setHealth(self.getMaxHealth());
-        self.playSound(self.getDeathSound(), 1.0F, 1.0F);
+        self.playSound(modstack$invokeGetDeathSound(), 1.0F, 1.0F);
 
-        // Run the mob's real loot table for the "popped" member, then let its
-        // held/worn equipment roll drop chances like a normal death would.
+        // Run the mob's real loot table for the "popped" member.
         modstack$invokeDropLoot(source, source.getAttacker() != null && source.getAttacker().isPlayer());
-        self.dropEquipment();
 
         ci.cancel(); // stop this damage call from killing/registering further; stack absorbed the hit
     }
