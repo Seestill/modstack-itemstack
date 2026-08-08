@@ -76,10 +76,14 @@ public abstract class MobEntityStackMixin implements StackAccess {
         if (self.getWorld().isClient) return;
         if (!self.isAlive()) return;
 
-        // Only show/hide the stack nametag when a player is close enough.
         if (modstack_count > 1) {
+            // Only show/hide the stack nametag when a player is close enough.
             boolean nearPlayer = self.getWorld().getClosestPlayer(self, ModStackConfig.NAMETAG_VISIBLE_RADIUS) != null;
             self.setCustomNameVisible(nearPlayer);
+
+            // Clear "who hit me" state every tick so panic/escape AI (sheep, cows,
+            // pigs, etc.) never gets a chance to trigger while part of a stack.
+            self.setAttacker(null);
         }
 
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
