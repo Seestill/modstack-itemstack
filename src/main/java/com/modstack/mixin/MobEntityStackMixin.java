@@ -7,7 +7,6 @@ import net.minecraft.entity.mob.ShulkerEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.AxolotlEntity;
 import net.minecraft.entity.passive.CatEntity;
-import net.minecraft.entity.passive.FoxEntity;
 import net.minecraft.entity.passive.FrogEntity;
 import net.minecraft.entity.passive.HorseEntity;
 import net.minecraft.entity.passive.LlamaEntity;
@@ -73,9 +72,11 @@ public abstract class MobEntityStackMixin implements StackAccess {
     }
 
     // Returns false if these two mobs are the same species but a DIFFERENT
-    // color/pattern variant (e.g. white sheep vs black sheep, red fox vs
-    // snow fox) and therefore must NOT be merged into the same stack.
-    // Species with no known variant check always return true.
+    // color/pattern variant (e.g. white sheep vs black sheep) and therefore
+    // must NOT be merged into the same stack. Species with no known variant
+    // check always return true. (Fox variant is skipped — its accessor name
+    // isn't confirmed for this mapping version, so foxes merge regardless of
+    // red/snow color for now.)
     private boolean modstack$sameVariant(MobEntity a, MobEntity b) {
         if (a instanceof SheepEntity sa && b instanceof SheepEntity sb) {
             return sa.getColor() == sb.getColor();
@@ -93,13 +94,10 @@ public abstract class MobEntityStackMixin implements StackAccess {
             return ma.getVariant() == mb.getVariant();
         }
         if (a instanceof RabbitEntity ra && b instanceof RabbitEntity rb) {
-            return ra.getRabbitType() == rb.getRabbitType();
+            return ra.getVariant() == rb.getVariant();
         }
         if (a instanceof CatEntity ca && b instanceof CatEntity cb) {
             return Objects.equals(ca.getVariant(), cb.getVariant());
-        }
-        if (a instanceof FoxEntity fa && b instanceof FoxEntity fb) {
-            return fa.getVariantType() == fb.getVariantType();
         }
         if (a instanceof AxolotlEntity xa && b instanceof AxolotlEntity xb) {
             return xa.getVariant() == xb.getVariant();
