@@ -3,8 +3,11 @@ package com.modstack.mixin;
 import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.mob.CreeperEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.ShulkerEntity;
+import net.minecraft.entity.mob.ZombieVillagerEntity;
+import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.AxolotlEntity;
 import net.minecraft.entity.passive.CatEntity;
@@ -17,6 +20,7 @@ import net.minecraft.entity.passive.PandaEntity;
 import net.minecraft.entity.passive.ParrotEntity;
 import net.minecraft.entity.passive.RabbitEntity;
 import net.minecraft.entity.passive.SheepEntity;
+import net.minecraft.entity.passive.TameableEntity;
 import net.minecraft.entity.passive.TropicalFishEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -35,21 +39,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 import java.util.Objects;
 
-// Adds a persistent "stack count" to every MobEntity, periodically merges
-// nearby identical mobs (same species AND same color/pattern variant, where
-// applicable) into one stack, colors the nametag by stack size, only shows
-// the nametag when a player is close enough, and (for chickens) lays bonus
-// eggs proportional to the stack size. All of this rides on MobEntity's
-// mobTick(), which is confirmed to exist directly on the class in this
-// mapping — species-specific method names (like ChickenEntity's own tick
-// override) aren't reliable across mapping versions, so we avoid targeting
-// them directly and instead branch on instanceof from here.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
     private int modstack_count = 1;
     private int modstack_mergeCooldown = (int) (Math.random() * ModStackConfig.MERGE_INTERVAL_TICKS);
     private int modstack_bonusEggTimer = -1;
+    private boolean modstack_exempt = false;
 
     @Override
     public int modstack$getCount() {
@@ -62,7 +58,13 @@ public abstract class MobEntityStackMixin implements StackAccess {
         modstack$refreshName();
     }
 
+    @Override
+    public boolean modstack$isExempt() {
+        return modstack_exempt;
+    }
+
     private void modstack$refreshName() {
+        if (modstack_exempt) return;
         MobEntity self = (MobEntity) (Object) this;
         if (modstack_count > 1) {
             String baseName = self.getType().getName().getString();
@@ -80,6 +82,18 @@ public abstract class MobEntityStackMixin implements StackAccess {
         if (count >= 25) return Formatting.GOLD;
         if (count >= 10) return Formatting.YELLOW;
         return Formatting.GREEN;
+    }
+
+    private boolean modstack$isTamed(MobEntity mob) {
+        if (mob instanceof TameableEntity t && t.isTamed()) return true;
+        if (mob instanceof AbstractHorseEntity h && h.isTame()) return true;
+        return false;
+    }
+
+    private boolean modstack$isSpecialState(MobEntity mob) {
+        if (mob instanceof ZombieVillagerEntity zv && zv.isConverting()) return true;
+        if (mob instanceof CreeperEntity creeper && creeper.isCharged()) return true;
+        return false;
     }
 
     private boolean modstack$sameVariant(MobEntity a, MobEntity b) {
@@ -125,14 +139,18 @@ public abstract class MobEntityStackMixin implements StackAccess {
     @Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
     private void modstack$writeNbt(NbtCompound nbt, CallbackInfo ci) {
         nbt.putInt("ModStackCount", modstack_count);
+        nbt.putBoolean("ModStackExempt", modstack_exempt);
     }
 
     @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
     private void modstack$readNbt(NbtCompound nbt, CallbackInfo ci) {
         if (nbt.contains("ModStackCount")) {
             modstack_count = Math.max(1, nbt.getInt("ModStackCount"));
-            modstack$refreshName();
         }
+        if (nbt.contains("ModStackExempt")) {
+            modstack_exempt = nbt.getBoolean("ModStackExempt");
+        }
+        modstack$refreshName();
     }
 
     @Inject(method = "mobTick", at = @At("HEAD"))
@@ -140,6 +158,13 @@ public abstract class MobEntityStackMixin implements StackAccess {
         MobEntity self = (MobEntity) (Object) this;
         if (self.getWorld().isClient) return;
         if (!self.isAlive()) return;
+
+        if (!modstack_exempt && modstack_count == 1 && self.hasCustomName()) {
+            modstack_exempt = true;
+        }
+        if (!modstack_exempt && modstack$isTamed(self)) {
+            modstack_exempt = true;
+        }
 
         if (modstack_count > 1) {
             boolean nearPlayer = self.getWorld().getClosestPlayer(self, ModStackConfig.NAMETAG_VISIBLE_RADIUS) != null;
@@ -151,6 +176,9 @@ public abstract class MobEntityStackMixin implements StackAccess {
             }
         }
 
+        if (modstack_exempt) return;
+        if (modstack$isSpecialState(self)) return;
+        if (self.age < ModStackConfig.MERGE_MIN_AGE_TICKS) return;
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
         if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
@@ -164,8 +192,12 @@ public abstract class MobEntityStackMixin implements StackAccess {
         List<MobEntity> nearby = serverWorld.getEntitiesByClass(MobEntity.class, searchBox,
                 other -> other != self
                         && other.isAlive()
+                        && other.age >= ModStackConfig.MERGE_MIN_AGE_TICKS
                         && other.getType() == self.getType()
                         && modstack$sameVariant(self, other)
+                        && !modstack$isSpecialState(other)
+                        && !modstack$isTamed(other)
+                        && !(other instanceof StackAccess os && os.modstack$isExempt())
                         && (ModStackConfig.ALLOW_BABY_STACKING || !(other instanceof AnimalEntity a && a.isBaby())));
 
         for (MobEntity other : nearby) {
