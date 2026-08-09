@@ -18,14 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // original entity dies for real through full vanilla logic: death
 // animation, sound, particles, and its real loot table.
 //
-// Before it's gone, we snapshot ONLY its color/pattern-related NBT (by
-// stripping out Attributes, Health, and other per-individual fields) and
-// spawn a replacement to continue representing the remaining stack count.
-// The replacement goes through the normal initialize() a freshly spawned
-// mob would (so its speed/health/jump attributes are freshly randomized
-// like any new horse/mob would be), then the snapshot is applied on top to
-// restore the same color/pattern the dead one had — so it still counts as
-// the same stack, but isn't a stat-for-stat clone.
+// Fire and active potion effects (poison, etc.) are deliberately NOT carried
+// over to the replacement — otherwise a single fire/poison tick that kills
+// the current representative would immediately also be "on fire"/poisoned
+// on the replacement, chain-killing the whole stack in one tick.
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityDamageMixin {
 
@@ -38,16 +34,13 @@ public abstract class LivingEntityDamageMixin {
         if (!(self instanceof MobEntity)) return;
 
         int remaining = stack.modstack$getCount() - 1;
-        if (remaining < 1) return; // this was the last one in the stack — just die normally
+        if (remaining < 1) return;
 
-        // Snapshot the dying mob's data, then strip everything that should
-        // NOT carry over to a "freshly spawned" replacement: per-individual
-        // stats, health, and bookkeeping fields. What's left is mostly
-        // color/pattern/variant-type data.
         NbtCompound snapshot = new NbtCompound();
         self.writeNbt(snapshot);
         snapshot.remove("UUID");
         snapshot.remove("ModStackCount");
+        snapshot.remove("ModStackExempt");
         snapshot.remove("CustomName");
         snapshot.remove("CustomNameVisible");
         snapshot.remove("Attributes");
@@ -55,21 +48,21 @@ public abstract class LivingEntityDamageMixin {
         snapshot.remove("HurtTime");
         snapshot.remove("DeathTime");
         snapshot.remove("Motion");
+        snapshot.remove("Fire");
+        snapshot.remove("ActiveEffects");
 
         EntityType<?> type = self.getType();
         Entity spawned = type.create(serverWorld);
         if (spawned instanceof MobEntity replacement) {
             replacement.refreshPositionAndAngles(self.getX(), self.getY(), self.getZ(), self.getYaw(), self.getPitch());
 
-            // Let the game randomize stats (speed/health/jump/etc.) exactly
-            // like a naturally spawned mob would get.
             replacement.initialize(serverWorld, serverWorld.getLocalDifficulty(replacement.getBlockPos()),
                     SpawnReason.MOB_SUMMONED, null, null);
 
-            // Now overlay the dead mob's color/pattern data on top.
             replacement.readNbt(snapshot);
             replacement.refreshPositionAndAngles(self.getX(), self.getY(), self.getZ(), self.getYaw(), self.getPitch());
             replacement.setHealth(replacement.getMaxHealth());
+            replacement.setFireTicks(0);
 
             if (replacement instanceof StackAccess replacementStack) {
                 replacementStack.modstack$setCount(remaining);
