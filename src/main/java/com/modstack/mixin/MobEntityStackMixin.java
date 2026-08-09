@@ -92,7 +92,11 @@ public abstract class MobEntityStackMixin implements StackAccess {
 
     private boolean modstack$isSpecialState(MobEntity mob) {
         if (mob instanceof ZombieVillagerEntity zv && zv.isConverting()) return true;
-        if (mob instanceof CreeperEntity creeper && creeper.isCharged()) return true;
+        if (mob instanceof CreeperEntity) {
+            NbtCompound temp = new NbtCompound();
+            mob.writeNbt(temp);
+            if (temp.getBoolean("Powered")) return true;
+        }
         return false;
     }
 
