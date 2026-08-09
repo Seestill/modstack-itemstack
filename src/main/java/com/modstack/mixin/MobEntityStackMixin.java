@@ -2,11 +2,13 @@ package com.modstack.mixin;
 
 import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.ShulkerEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.AxolotlEntity;
 import net.minecraft.entity.passive.CatEntity;
+import net.minecraft.entity.passive.ChickenEntity;
 import net.minecraft.entity.passive.FrogEntity;
 import net.minecraft.entity.passive.HorseEntity;
 import net.minecraft.entity.passive.LlamaEntity;
@@ -16,8 +18,11 @@ import net.minecraft.entity.passive.ParrotEntity;
 import net.minecraft.entity.passive.RabbitEntity;
 import net.minecraft.entity.passive.SheepEntity;
 import net.minecraft.entity.passive.TropicalFishEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -32,13 +37,19 @@ import java.util.Objects;
 
 // Adds a persistent "stack count" to every MobEntity, periodically merges
 // nearby identical mobs (same species AND same color/pattern variant, where
-// applicable) into one stack, colors the nametag by stack size, and only
-// shows the nametag when a player is close enough.
+// applicable) into one stack, colors the nametag by stack size, only shows
+// the nametag when a player is close enough, and (for chickens) lays bonus
+// eggs proportional to the stack size. All of this rides on MobEntity's
+// mobTick(), which is confirmed to exist directly on the class in this
+// mapping — species-specific method names (like ChickenEntity's own tick
+// override) aren't reliable across mapping versions, so we avoid targeting
+// them directly and instead branch on instanceof from here.
 @Mixin(MobEntity.class)
 public abstract class MobEntityStackMixin implements StackAccess {
 
     private int modstack_count = 1;
     private int modstack_mergeCooldown = (int) (Math.random() * ModStackConfig.MERGE_INTERVAL_TICKS);
+    private int modstack_bonusEggTimer = -1;
 
     @Override
     public int modstack$getCount() {
@@ -71,12 +82,6 @@ public abstract class MobEntityStackMixin implements StackAccess {
         return Formatting.GREEN;
     }
 
-    // Returns false if these two mobs are the same species but a DIFFERENT
-    // color/pattern variant (e.g. white sheep vs black sheep) and therefore
-    // must NOT be merged into the same stack. Species with no known variant
-    // check always return true. (Fox variant is skipped — its accessor name
-    // isn't confirmed for this mapping version, so foxes merge regardless of
-    // red/snow color for now.)
     private boolean modstack$sameVariant(MobEntity a, MobEntity b) {
         if (a instanceof SheepEntity sa && b instanceof SheepEntity sb) {
             return sa.getColor() == sb.getColor();
@@ -140,6 +145,10 @@ public abstract class MobEntityStackMixin implements StackAccess {
             boolean nearPlayer = self.getWorld().getClosestPlayer(self, ModStackConfig.NAMETAG_VISIBLE_RADIUS) != null;
             self.setCustomNameVisible(nearPlayer);
             self.setAttacker(null);
+
+            if (self instanceof ChickenEntity chicken) {
+                modstack$tickBonusEggs(chicken);
+            }
         }
 
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
@@ -168,5 +177,25 @@ public abstract class MobEntityStackMixin implements StackAccess {
             other.discard();
             if (modstack_count >= ModStackConfig.MAX_MOB_STACK) break;
         }
+    }
+
+    private void modstack$tickBonusEggs(ChickenEntity chicken) {
+        if (chicken.isBaby()) return;
+        if (!(chicken.getWorld() instanceof ServerWorld serverWorld)) return;
+
+        if (modstack_bonusEggTimer < 0) {
+            modstack_bonusEggTimer = 6000 + chicken.getRandom().nextInt(6000);
+        }
+        if (modstack_bonusEggTimer-- > 0) return;
+        modstack_bonusEggTimer = 6000 + chicken.getRandom().nextInt(6000);
+
+        int eggsToLay = Math.min(modstack_count - 1, 64);
+        if (eggsToLay <= 0) return;
+
+        ItemStack eggs = new ItemStack(Items.EGG, eggsToLay);
+        ItemEntity eggEntity = new ItemEntity(serverWorld, chicken.getX(), chicken.getY(), chicken.getZ(), eggs);
+        serverWorld.spawnEntity(eggEntity);
+        chicken.playSound(SoundEvents.ENTITY_CHICKEN_EGG, 1.0F,
+                (chicken.getRandom().nextFloat() - chicken.getRandom().nextFloat()) * 0.2F + 1.0F);
     }
 }
