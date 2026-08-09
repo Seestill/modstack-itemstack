@@ -24,7 +24,7 @@ public abstract class ChickenEggMixin {
     private static final Random MODSTACK_RANDOM = new Random();
     private int modstack_bonusEggTimer = -1;
 
-    @Inject(method = "tick", at = @At("TAIL"))
+    @Inject(method = "mobTick", at = @At("TAIL"))
     private void modstack$layBonusEggs(CallbackInfo ci) {
         ChickenEntity self = (ChickenEntity) (Object) this;
         if (self.getWorld().isClient) return;
