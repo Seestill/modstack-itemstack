@@ -63,6 +63,10 @@ public class ModStackMod implements ModInitializer {
                 snapshot.remove("CustomNameVisible");
 
                 stack.modstack$setCount(count - 1);
+                if (count - 1 <= 1) {
+                    mob.setCustomName(null);
+                    mob.setCustomNameVisible(false);
+                }
 
                 EntityType<?> type = mob.getType();
                 Entity spawned = type.create(serverWorld);
@@ -78,6 +82,8 @@ public class ModStackMod implements ModInitializer {
                     if (split instanceof StackAccess splitStack) {
                         splitStack.modstack$setCount(1);
                     }
+                    split.setCustomName(null);
+                    split.setCustomNameVisible(false);
                     serverWorld.spawnEntity(split);
                     player.sendMessage(Text.literal("Split 1 out — " + (count - 1) + " left in the stack."), true);
                 }
