@@ -90,6 +90,15 @@ public abstract class MobEntityStackMixin implements StackAccess {
         return false;
     }
 
+    // Adults and babies must never merge into the same stack representative,
+    // even when baby stacking is enabled — otherwise the survivor's own
+    // baby/adult model "wins" and visually swallows the other's growth stage.
+    private boolean modstack$sameGrowthStage(MobEntity a, MobEntity b) {
+        boolean aBaby = a instanceof AnimalEntity aa && aa.isBaby();
+        boolean bBaby = b instanceof AnimalEntity bb && bb.isBaby();
+        return aBaby == bBaby;
+    }
+
     private boolean modstack$isSpecialState(MobEntity mob) {
         if (mob instanceof ZombieVillagerEntity zv && zv.isConverting()) return true;
         if (mob instanceof CreeperEntity) {
