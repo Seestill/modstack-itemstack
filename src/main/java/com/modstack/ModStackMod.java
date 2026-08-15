@@ -4,7 +4,9 @@ import com.modstack.config.ModStackConfig;
 import com.modstack.entity.BreedingCheck;
 import com.modstack.entity.StackAccess;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.minecraft.server.command.CommandManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -28,11 +30,26 @@ public class ModStackMod implements ModInitializer {
     @Override
     public void onInitialize() {
         LOGGER.info("[ModStack] Initializing mob & item-drop stacking system...");
+        ModStackConfig.load();
         registerInteractions();
+        registerCommands();
         LOGGER.info("[ModStack] Ready. Mob merge radius={} blocks, max stack={}, item-drop merge radius={} blocks, item-drop max pile={}, breeding-into-stack={}",
                 ModStackConfig.MERGE_RADIUS, ModStackConfig.MAX_MOB_STACK,
                 ModStackConfig.ITEM_DROP_MERGE_RADIUS, ModStackConfig.ITEM_DROP_MAX_STACK,
                 ModStackConfig.BREEDING_ADDS_TO_STACK);
+    }
+
+    private void registerCommands() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            dispatcher.register(CommandManager.literal("modstack")
+                    .then(CommandManager.literal("reload")
+                            .requires(source -> source.hasPermissionLevel(2))
+                            .executes(ctx -> {
+                                ModStackConfig.reload();
+                                ctx.getSource().sendFeedback(() -> Text.literal("[ModStack] Config reloaded from modstack.json"), true);
+                                return 1;
+                            })));
+        });
     }
 
     private void registerInteractions() {
@@ -44,13 +61,6 @@ public class ModStackMod implements ModInitializer {
 
             ItemStack heldStack = player.getStackInHand(hand);
 
-            // Feeding a stacked animal its real breeding food: pull ONE
-            // individual out of the stack and put THAT one into love mode.
-            // Feed again (same or the reduced representative) to split a
-            // second one out — vanilla then pairs the two real, separate
-            // entities and breeds them normally. Parents merge back into the
-            // stack automatically afterward via the normal merge tick, same
-            // as the baby will once it's grown up.
             if (mob instanceof AnimalEntity animal
                     && mob instanceof BreedingCheck breedCheck
                     && stack.modstack$getCount() > 1
@@ -102,13 +112,10 @@ public class ModStackMod implements ModInitializer {
                 return ActionResult.SUCCESS;
             }
 
-            // Block using a spawn egg on an already-stacked mob to pump its
-            // count for free.
             if (heldStack.getItem() instanceof SpawnEggItem && stack.modstack$getCount() > 1) {
                 return ActionResult.FAIL;
             }
 
-            // Sneak + empty main hand = pull one mob out of the stack.
             if (player.isSneaking() && heldStack.isEmpty() && hand == Hand.MAIN_HAND) {
                 int count = stack.modstack$getCount();
                 if (count <= 1) return ActionResult.PASS;
