@@ -213,6 +213,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
                         && other.age >= ModStackConfig.MERGE_MIN_AGE_TICKS
                         && other.getType() == self.getType()
                         && modstack$sameVariant(self, other)
+                        && modstack$sameGrowthStage(self, other)
                         && !modstack$isSpecialState(other)
                         && !modstack$isTamed(other)
                         && !(other instanceof StackAccess os && os.modstack$isExempt())
