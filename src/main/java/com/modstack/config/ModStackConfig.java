@@ -1,45 +1,107 @@
 package com.modstack.config;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+import net.fabricmc.loader.api.FabricLoader;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 // Central configuration for ModStack ItemStack.
+// Values are loaded from <minecraft>/config/modstack.json at startup
+// (created with defaults on first run) so they can be tweaked without
+// recompiling. Edit the file, then run "/modstack reload" in-game (needs
+// op/permission level 2) to apply changes without restarting.
 public final class ModStackConfig {
 
     private ModStackConfig() {}
 
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static Path configPath;
+
     // ---------- Mob stacking ----------
-
-    // Max mobs allowed in a single stack.
-    public static final int MAX_MOB_STACK = 128;
-
-    // Radius (blocks) mobs merge within, checked every MERGE_INTERVAL_TICKS.
-    public static final double MERGE_RADIUS = 4.0D;
-
-    // How close a player must be (blocks) before the stack count nametag shows up.
-    public static final double NAMETAG_VISIBLE_RADIUS = 6.0D;
-
-    // How often (in ticks) the server scans for mergeable mobs. 20 ticks = 1s.
-    public static final int MERGE_INTERVAL_TICKS = 40;
-
-    // A mob must exist for at least this many ticks before it's eligible to
-    // merge into (or absorb) a stack. Prevents mobs merging instantly
-    // mid-air, which breaks mob grinders/farms that rely on individual mobs.
-    public static final int MERGE_MIN_AGE_TICKS = 60;
-
-    // Baby mobs never stack (keeps growth logic sane).
-    public static final boolean ALLOW_BABY_STACKING = true;
+    public static int MAX_MOB_STACK = 64;
+    public static double MERGE_RADIUS = 4.0D;
+    public static double NAMETAG_VISIBLE_RADIUS = 6.0D;
+    public static int MERGE_INTERVAL_TICKS = 40;
+    public static int MERGE_MIN_AGE_TICKS = 60;
+    public static boolean ALLOW_BABY_STACKING = false;
 
     // ---------- Item DROP stacking (items lying on the ground) ----------
-
-    // Max combined count for a single pile of dropped items on the ground.
-    public static final int ITEM_DROP_MAX_STACK = 6400;
-
-    // Radius (blocks) dropped items scan for other matching drops to merge with.
-    public static final double ITEM_DROP_MERGE_RADIUS = 3.0D;
-
-    // How often (in ticks) each dropped item scans for nearby matches.
-    public static final int ITEM_DROP_MERGE_INTERVAL_TICKS = 20;
+    public static int ITEM_DROP_MAX_STACK = 6400;
+    public static double ITEM_DROP_MERGE_RADIUS = 3.0D;
+    public static int ITEM_DROP_MERGE_INTERVAL_TICKS = 20;
 
     // ---------- Breeding ----------
+    public static boolean BREEDING_ADDS_TO_STACK = true;
+    public static double BONUS_OFFSPRING_CHANCE = 0.1D;
 
-    public static final boolean BREEDING_ADDS_TO_STACK = true;
-    public static final double BONUS_OFFSPRING_CHANCE = 0.1D;
+    // Plain data holder mirrored to/from JSON. Field names here become the
+    // JSON keys in config/modstack.json.
+    private static final class Data {
+        int maxMobStack = MAX_MOB_STACK;
+        double mergeRadius = MERGE_RADIUS;
+        double nametagVisibleRadius = NAMETAG_VISIBLE_RADIUS;
+        int mergeIntervalTicks = MERGE_INTERVAL_TICKS;
+        int mergeMinAgeTicks = MERGE_MIN_AGE_TICKS;
+        boolean allowBabyStacking = ALLOW_BABY_STACKING;
+
+        int itemDropMaxStack = ITEM_DROP_MAX_STACK;
+        double itemDropMergeRadius = ITEM_DROP_MERGE_RADIUS;
+        int itemDropMergeIntervalTicks = ITEM_DROP_MERGE_INTERVAL_TICKS;
+
+        boolean breedingAddsToStack = BREEDING_ADDS_TO_STACK;
+        double bonusOffspringChance = BONUS_OFFSPRING_CHANCE;
+    }
+
+    public static void load() {
+        configPath = FabricLoader.getInstance().getConfigDir().resolve("modstack.json");
+        Data data = new Data();
+        if (Files.exists(configPath)) {
+            try (Reader reader = Files.newBufferedReader(configPath, StandardCharsets.UTF_8)) {
+                Data loaded = GSON.fromJson(reader, Data.class);
+                if (loaded != null) data = loaded;
+            } catch (IOException | JsonSyntaxException e) {
+                com.modstack.ModStackMod.LOGGER.warn("[ModStack] Failed to read config, using defaults: {}", e.getMessage());
+            }
+        }
+        applyData(data);
+        save(data);
+    }
+
+    public static void reload() {
+        load();
+    }
+
+    private static void applyData(Data data) {
+        MAX_MOB_STACK = data.maxMobStack;
+        MERGE_RADIUS = data.mergeRadius;
+        NAMETAG_VISIBLE_RADIUS = data.nametagVisibleRadius;
+        MERGE_INTERVAL_TICKS = data.mergeIntervalTicks;
+        MERGE_MIN_AGE_TICKS = data.mergeMinAgeTicks;
+        ALLOW_BABY_STACKING = data.allowBabyStacking;
+
+        ITEM_DROP_MAX_STACK = data.itemDropMaxStack;
+        ITEM_DROP_MERGE_RADIUS = data.itemDropMergeRadius;
+        ITEM_DROP_MERGE_INTERVAL_TICKS = data.itemDropMergeIntervalTicks;
+
+        BREEDING_ADDS_TO_STACK = data.breedingAddsToStack;
+        BONUS_OFFSPRING_CHANCE = data.bonusOffspringChance;
+    }
+
+    private static void save(Data data) {
+        try {
+            Files.createDirectories(configPath.getParent());
+            try (Writer writer = Files.newBufferedWriter(configPath, StandardCharsets.UTF_8)) {
+                GSON.toJson(data, writer);
+            }
+        } catch (IOException e) {
+            com.modstack.ModStackMod.LOGGER.warn("[ModStack] Failed to write config: {}", e.getMessage());
+        }
+    }
 }
