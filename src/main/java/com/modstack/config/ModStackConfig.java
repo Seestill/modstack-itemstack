@@ -8,7 +8,7 @@ public final class ModStackConfig {
     // ---------- Mob stacking ----------
 
     // Max mobs allowed in a single stack.
-    public static final int MAX_MOB_STACK = 64;
+    public static final int MAX_MOB_STACK = 128;
 
     // Radius (blocks) mobs merge within, checked every MERGE_INTERVAL_TICKS.
     public static final double MERGE_RADIUS = 4.0D;
@@ -25,7 +25,7 @@ public final class ModStackConfig {
     public static final int MERGE_MIN_AGE_TICKS = 60;
 
     // Baby mobs never stack (keeps growth logic sane).
-    public static final boolean ALLOW_BABY_STACKING = false;
+    public static final boolean ALLOW_BABY_STACKING = true;
 
     // ---------- Item DROP stacking (items lying on the ground) ----------
 
