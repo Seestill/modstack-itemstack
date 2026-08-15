@@ -97,6 +97,11 @@ public abstract class MobEntityStackMixin implements StackAccess {
             mob.writeNbt(temp);
             if (temp.getBoolean("Powered")) return true;
         }
+        // Villagers (and wandering traders) each carry their own unique
+        // profession/trades — merging them would silently delete a villager's
+        // entire trade inventory, so they never stack at all.
+        if (mob instanceof net.minecraft.entity.passive.VillagerEntity) return true;
+        if (mob instanceof net.minecraft.entity.passive.WanderingTraderEntity) return true;
         return false;
     }
 
