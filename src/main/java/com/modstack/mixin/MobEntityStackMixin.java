@@ -198,6 +198,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
         if (modstack$isSpecialState(self)) return;
         if (self.age < ModStackConfig.MERGE_MIN_AGE_TICKS) return;
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
+        if (!ModStackConfig.isSpeciesStackingEnabled(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).toString())) return;
         if (!ModStackConfig.ALLOW_BABY_STACKING && self instanceof AnimalEntity animal && animal.isBaby()) return;
 
         if (modstack_mergeCooldown-- > 0) return;
@@ -214,6 +215,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
                         && other.getType() == self.getType()
                         && modstack$sameVariant(self, other)
                         && modstack$sameGrowthStage(self, other)
+                        && ModStackConfig.isSpeciesStackingEnabled(net.minecraft.registry.Registries.ENTITY_TYPE.getId(other.getType()).toString())
                         && !modstack$isSpecialState(other)
                         && !modstack$isTamed(other)
                         && !(other instanceof StackAccess os && os.modstack$isExempt())
