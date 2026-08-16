@@ -30,12 +30,21 @@ public final class ModStackConfig {
     public static double NAMETAG_VISIBLE_RADIUS = 6.0D;
     public static int MERGE_INTERVAL_TICKS = 40;
     public static int MERGE_MIN_AGE_TICKS = 60;
-    public static boolean ALLOW_BABY_STACKING = false;
+    public static boolean ALLOW_BABY_STACKING = true;
 
     // ---------- Item DROP stacking (items lying on the ground) ----------
     public static int ITEM_DROP_MAX_STACK = 6400;
     public static double ITEM_DROP_MERGE_RADIUS = 3.0D;
     public static int ITEM_DROP_MERGE_INTERVAL_TICKS = 20;
+
+    // When a stack representative dies, spawn a replacement to keep the
+    // stack's color/pattern visible. Turn this OFF for mob-grinder farms
+    // that rely on fall damage leaving mobs at low health — a replacement
+    // always spawns at full health, which breaks weak auto-kill mechanisms
+    // tuned for near-dead mobs. With this off, killing just shrinks the
+    // stack count; fresh, not-yet-merged mobs from the spawner keep the
+    // farm fed instead.
+    public static boolean SPAWN_REPLACEMENT_ON_DEATH = true;
 
     // ---------- Breeding ----------
     public static boolean BREEDING_ADDS_TO_STACK = true;
@@ -54,6 +63,8 @@ public final class ModStackConfig {
         int itemDropMaxStack = ITEM_DROP_MAX_STACK;
         double itemDropMergeRadius = ITEM_DROP_MERGE_RADIUS;
         int itemDropMergeIntervalTicks = ITEM_DROP_MERGE_INTERVAL_TICKS;
+
+        boolean spawnReplacementOnDeath = SPAWN_REPLACEMENT_ON_DEATH;
 
         boolean breedingAddsToStack = BREEDING_ADDS_TO_STACK;
         double bonusOffspringChance = BONUS_OFFSPRING_CHANCE;
@@ -74,6 +85,7 @@ public final class ModStackConfig {
         save(data);
     }
 
+    // Re-reads the file from disk; used by "/modstack reload".
     public static void reload() {
         load();
     }
@@ -89,6 +101,8 @@ public final class ModStackConfig {
         ITEM_DROP_MAX_STACK = data.itemDropMaxStack;
         ITEM_DROP_MERGE_RADIUS = data.itemDropMergeRadius;
         ITEM_DROP_MERGE_INTERVAL_TICKS = data.itemDropMergeIntervalTicks;
+
+        SPAWN_REPLACEMENT_ON_DEATH = data.spawnReplacementOnDeath;
 
         BREEDING_ADDS_TO_STACK = data.breedingAddsToStack;
         BONUS_OFFSPRING_CHANCE = data.bonusOffspringChance;
