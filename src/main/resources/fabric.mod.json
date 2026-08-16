@@ -10,7 +10,8 @@
   "environment": "*",
   "entrypoints": {
     "main": ["com.modstack.ModStackMod"],
-    "client": ["com.modstack.ModStackClient"]
+    "client": ["com.modstack.ModStackClient"],
+    "modmenu": ["com.modstack.ModStackModMenuIntegration"]
   },
   "mixins": ["modstack.mixins.json"],
   "depends": {
@@ -18,5 +19,9 @@
     "fabric-api": "*",
     "minecraft": "1.20.1",
     "java": ">=17"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "cloth-config": "*"
   }
 }
