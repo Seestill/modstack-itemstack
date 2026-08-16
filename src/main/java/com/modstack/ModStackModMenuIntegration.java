@@ -74,8 +74,15 @@ public class ModStackModMenuIntegration implements ModMenuApi {
                     .setSaveConsumer(v -> ModStackConfig.BONUS_OFFSPRING_CHANCE = v)
                     .build());
 
-            builder.setSavingRunnable(ModStackConfig::saveCurrent);
+            ConfigCategory perMob = builder.getOrCreateCategory(Text.literal("Per-Mob Stacking"));
+            for (String mobId : ModStackConfig.MOB_STACKING_ENABLED.keySet()) {
+                boolean current = ModStackConfig.MOB_STACKING_ENABLED.getOrDefault(mobId, true);
+                perMob.addEntry(entry.startBooleanToggle(Text.literal(mobId), current)
+                        .setSaveConsumer(v -> ModStackConfig.MOB_STACKING_ENABLED.put(mobId, v))
+                        .build());
+            }
 
+            builder.setSavingRunnable(ModStackConfig::saveCurrent);
             return builder.build();
         };
     }
