@@ -1,5 +1,6 @@
 package com.modstack.mixin;
 
+import com.modstack.config.ModStackConfig;
 import com.modstack.entity.StackAccess;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -14,14 +15,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// When a stacked mob actually dies (lethal hit reaches onDeath), the
-// original entity dies for real through full vanilla logic: death
-// animation, sound, particles, and its real loot table.
-//
-// Fire and active potion effects (poison, etc.) are deliberately NOT carried
-// over to the replacement — otherwise a single fire/poison tick that kills
-// the current representative would immediately also be "on fire"/poisoned
-// on the replacement, chain-killing the whole stack in one tick.
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityDamageMixin {
 
@@ -35,6 +28,11 @@ public abstract class LivingEntityDamageMixin {
 
         int remaining = stack.modstack$getCount() - 1;
         if (remaining < 1) return;
+
+        if (!ModStackConfig.SPAWN_REPLACEMENT_ON_DEATH) {
+            stack.modstack$setCount(remaining);
+            return;
+        }
 
         NbtCompound snapshot = new NbtCompound();
         self.writeNbt(snapshot);
