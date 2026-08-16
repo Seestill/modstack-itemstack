@@ -25,7 +25,7 @@ public final class ModStackConfig {
     private static Path configPath;
 
     // ---------- Mob stacking ----------
-    public static int MAX_MOB_STACK = 64;
+    public static int MAX_MOB_STACK = 128;
     public static double MERGE_RADIUS = 4.0D;
     public static double NAMETAG_VISIBLE_RADIUS = 6.0D;
     public static int MERGE_INTERVAL_TICKS = 40;
@@ -82,12 +82,31 @@ public final class ModStackConfig {
             }
         }
         applyData(data);
-        save(data);
+        save(data); // rewrite so any new/missing fields get filled in with defaults
     }
 
     // Re-reads the file from disk; used by "/modstack reload".
     public static void reload() {
         load();
+    }
+
+    // Writes the CURRENT in-memory values back to disk; used by the Mod
+    // Menu / Cloth Config screen's save button.
+    public static void saveCurrent() {
+        Data data = new Data();
+        data.maxMobStack = MAX_MOB_STACK;
+        data.mergeRadius = MERGE_RADIUS;
+        data.nametagVisibleRadius = NAMETAG_VISIBLE_RADIUS;
+        data.mergeIntervalTicks = MERGE_INTERVAL_TICKS;
+        data.mergeMinAgeTicks = MERGE_MIN_AGE_TICKS;
+        data.allowBabyStacking = ALLOW_BABY_STACKING;
+        data.itemDropMaxStack = ITEM_DROP_MAX_STACK;
+        data.itemDropMergeRadius = ITEM_DROP_MERGE_RADIUS;
+        data.itemDropMergeIntervalTicks = ITEM_DROP_MERGE_INTERVAL_TICKS;
+        data.spawnReplacementOnDeath = SPAWN_REPLACEMENT_ON_DEATH;
+        data.breedingAddsToStack = BREEDING_ADDS_TO_STACK;
+        data.bonusOffspringChance = BONUS_OFFSPRING_CHANCE;
+        save(data);
     }
 
     private static void applyData(Data data) {
