@@ -99,6 +99,14 @@ public abstract class MobEntityStackMixin implements StackAccess {
         return aBaby == bBaby;
     }
 
+    // A mob currently in love mode (fed, waiting to pair up and breed)
+    // must never be pulled into a stack — otherwise it gets reabsorbed
+    // before it finishes breeding, wasting the food and producing fewer
+    // babies than expected.
+    private boolean modstack$isInLoveMode(MobEntity mob) {
+        return mob instanceof AnimalEntity ae && ae.isInLove();
+    }
+
     private boolean modstack$isSpecialState(MobEntity mob) {
         if (mob instanceof ZombieVillagerEntity zv && zv.isConverting()) return true;
         if (mob instanceof CreeperEntity) {
@@ -196,6 +204,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
 
         if (modstack_exempt) return;
         if (modstack$isSpecialState(self)) return;
+        if (modstack$isInLoveMode(self)) return;
         if (self.age < ModStackConfig.MERGE_MIN_AGE_TICKS) return;
         if (!"minecraft".equals(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).getNamespace())) return;
         if (!ModStackConfig.isSpeciesStackingEnabled(net.minecraft.registry.Registries.ENTITY_TYPE.getId(self.getType()).toString())) return;
@@ -217,6 +226,7 @@ public abstract class MobEntityStackMixin implements StackAccess {
                         && modstack$sameGrowthStage(self, other)
                         && ModStackConfig.isSpeciesStackingEnabled(net.minecraft.registry.Registries.ENTITY_TYPE.getId(other.getType()).toString())
                         && !modstack$isSpecialState(other)
+                        && !modstack$isInLoveMode(other)
                         && !modstack$isTamed(other)
                         && !(other instanceof StackAccess os && os.modstack$isExempt())
                         && (ModStackConfig.ALLOW_BABY_STACKING || !(other instanceof AnimalEntity a && a.isBaby())));
